@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | Flavor Fusion</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/styles.css">
+    <style>
+        .admin-sidebar {
+            background: var(--bg-charcoal);
+            min-height: 100vh;
+            border-right: 1px solid var(--glass-border);
+        }
+
+        .order-table {
+            background: var(--glass-bg);
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        .order-table th {
+            background: rgba(212, 175, 55, 0.1);
+            color: var(--primary-gold);
+            border: none;
+        }
+
+        .order-table td {
+            color: var(--text-white);
+            border-bottom: 1px solid var(--glass-border);
+            vertical-align: middle;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container-fluid">
+        <div class="row">
+            <!-- Sidebar -->
+            <div class="col-md-3 col-lg-2 admin-sidebar p-4 position-fixed d-none d-md-block">
+                <h4 class="text-gold mb-5">FF ADMIN</h4>
+                <ul class="nav flex-column gap-3">
+                    <li class="nav-item">
+                        <a class="nav-link active p-0" href="#"><i class="fas fa-chart-line me-2"></i> Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link p-0" href="#"><i class="fas fa-list me-2"></i> Orders</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link p-0" href="#"><i class="fas fa-utensils me-2"></i> Menu Items</a>
+                    </li>
+                    <li class="mt-5">
+                        <a href="index.html" class="btn btn-outline-gold w-100 btn-sm">Back to Site</a>
+                    </li>
+                </ul>
+            </div>
+
+            <!-- Main Content -->
+            <div class="col-md-9 ms-md-auto col-lg-10 p-5">
+                <div class="d-flex justify-content-between align-items-center mb-5">
+                    <h2>Orders <span>Management</span></h2>
+                    <div class="text-gray" id="currentTime"></div>
+                </div>
+
+                <div class="row g-4 mb-5">
+                    <div class="col-md-4">
+                        <div class="glass-card p-4 text-center">
+                            <h3 id="statTotalOrders" class="text-gold">0</h3>
+                            <p class="text-gray mb-0">Total Orders</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="glass-card p-4 text-center">
+                            <h3 id="statPendingOrders" class="text-gold">0</h3>
+                            <p class="text-gray mb-0">Pending</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="glass-card p-4 text-center">
+                            <h3 id="statTotalSales" class="text-gold">RS 0</h3>
+                            <p class="text-gray mb-0">Total Sales</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="order-table table-responsive p-3 glass-card">
+                    <table class="table text-nowrap mb-0">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>Customer</th>
+                                <th>Items</th>
+                                <th>Total</th>
+                                <th>Date</th>
+                                <th>Status</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="adminOrdersTable">
+                            <!-- Orders injected here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            loadOrders();
+            setInterval(() => {
+                document.getElementById('currentTime').innerText = new Date().toLocaleString();
+            }, 1000);
+        });
+
+        function loadOrders() {
+            const orders = JSON.parse(localStorage.getItem('flavorFusionOrders')) || [];
+            const tableBody = document.getElementById('adminOrdersTable');
+            tableBody.innerHTML = '';
+
+            // Update Stats
+            document.getElementById('statTotalOrders').innerText = orders.length;
+            document.getElementById('statPendingOrders').innerText = orders.filter(o => o.status === 'Pending').length;
+            const totalSales = orders.reduce((acc, curr) => {
+                if (curr.total === 'TBD') return acc;
+                return acc + parseFloat(curr.total.replace('RS', '').trim());
+            }, 0);
+            document.getElementById('statTotalSales').innerText = `RS ${totalSales}`;
+
+            if (orders.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="7" class="text-center py-5">No orders found</td></tr>';
+                return;
+            }
+
+            orders.forEach((order, index) => {
+                const itemNames = order.items.map(i => `${i.name} (x${i.quantity})`).join(', ');
+                const statusClass = order.status === 'Pending' ? 'bg-warning text-dark' : 'bg-success';
+
+                const row = `
+                    <tr>
+                        <td class="fw-bold">${order.id}</td>
+                        <td>
+                            <div>${order.customer}</div>
+                            <small class="text-gray">${order.phone}</small>
+                        </td>
+                        <td style="max-width: 250px; overflow: hidden; text-overflow: ellipsis;">${itemNames}</td>
+                        <td class="text-gold fw-bold">${order.total}</td>
+                        <td>${order.timestamp}</td>
+                        <td><span class="badge ${statusClass}">${order.status}</span></td>
+                        <td>
+                            ${order.status === 'Pending' ?
+                        `<button class="btn btn-sm btn-gold" onclick="markCompleted(${index})">Deliver</button>` :
+                        `<button class="btn btn-sm btn-outline-danger" onclick="deleteOrder(${index})">Delete</button>`
+                    }
+                        </td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            });
+        }
+
+        function markCompleted(index) {
+            const orders = JSON.parse(localStorage.getItem('flavorFusionOrders')) || [];
+            orders[index].status = 'Completed';
+            localStorage.setItem('flavorFusionOrders', JSON.stringify(orders));
+            loadOrders();
+        }
+
+        function deleteOrder(index) {
+            if (confirm('Are you sure you want to delete this order?')) {
+                const orders = JSON.parse(localStorage.getItem('flavorFusionOrders')) || [];
+                orders.splice(index, 1);
+                localStorage.setItem('flavorFusionOrders', JSON.stringify(orders));
+                loadOrders();
+            }
+        }
+    </script>
+</body>
+
+</html>
